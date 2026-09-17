@@ -345,9 +345,11 @@ echo Exiting with success.
 exit 0
 
 :error
-echo Failed with error #%errorlevel%.
-pause
-exit %errorlevel%
+echo Dependency build failed. Last command error: %errorlevel%.
+rem A missing toolchain can reach this label with errorlevel 0.
+rem Never report success or wait for keyboard input on a CI failure.
+if not defined CI pause
+exit 1
 
 :downloadfile
 if not exist "%~1" (
