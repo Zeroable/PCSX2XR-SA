@@ -60,24 +60,22 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Verify missing-toolchain failure
+        timeout-minutes: 1
         shell: pwsh
         run: |
-          $originalProgramFiles = $env:ProgramFiles
-          try {
-            $env:ProgramFiles = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
-            $output = & $env:ComSpec /d /c 'call .github\workflows\scripts\windows\build-dependencies.bat <NUL'
-            $result = $LASTEXITCODE
-            $output | Write-Host
-            if (($output -join "\n") -notmatch 'Visual Studio 2022 not found') {
-              throw "The test did not reach the missing-toolchain check."
-            }
-            if ($result -eq 0) {
-              throw "Dependency setup incorrectly succeeded without Visual Studio."
-            }
-            $global:LASTEXITCODE = 0
-          } finally {
-            $env:ProgramFiles = $originalProgramFiles
+          # cmd.exe initializes ProgramFiles on startup; override it inside cmd.
+          $missingProgramFiles = Join-Path $env:RUNNER_TEMP ([guid]::NewGuid().ToString())
+          $command = 'set "ProgramFiles={0}" && call .github\workflows\scripts\windows\build-dependencies.bat <NUL' -f $missingProgramFiles
+          $output = & $env:ComSpec /d /c $command
+          $result = $LASTEXITCODE
+          $output | Write-Host
+          if (($output -join "\n") -notmatch 'Visual Studio 2022 not found') {
+            throw "The test did not reach the missing-toolchain check."
           }
+          if ($result -eq 0) {
+            throw "Dependency setup incorrectly succeeded without Visual Studio."
+          }
+          $global:LASTEXITCODE = 0
 
       - name: Configure MSBuild Clang Version
         if: inputs.configuration != 'CMake'
